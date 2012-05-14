@@ -75,7 +75,7 @@ class MSA(spade.bdi.BDIAgent):
     def scheduleFailed(self):
         
         # Shut down the agent (disregister agent from AMS)
-        self.myAgent._shutdown()
+        #self.myAgent.stop()
         # Call interact.failed to wait for user's decision
         meetingID = self.myAgent.mt['ID']
         interact = Interact(meetingID)
@@ -1507,11 +1507,12 @@ Implemented at the last stage
 """
 class Interact(object):
     
-    
     def __init__(self,meetingID,hostID=None,confirmPeriod=None,confirmDate=None):
+        
         # Initialize member variables that may be used
         self.meetingID = meetingID
         self.hostID = hostID
+        self.userID = self.hostID
         self.confirmPeriod = confirmPeriod
         self.confirmDate = confirmDate
         
@@ -1520,16 +1521,32 @@ class Interact(object):
     """
     
     def failed(self):
-        
+        stage = 'GEN'
+        WAIT_TIME = 60
         # Update dms.meeting.conf_period tp False to fail the meeting
         result = updateConfPeriod(self.meetingID,'False')
         if result > 0:
             print "Updated dms.meeting.conf_period: => False"
-
+            
+        counter = 0
         # Periodically query dms.meeting and dms.meeting_canceled to check whether
         # the meeting is canceled or rescheduled
-        
-        
+        while True:
+            if isMeetingCanceled(meetingID):
+                # If the meeting is canceled, break
+                break
+            
+            if isRescheduled(meetingID):
+                # If the meeting is rescheduled, break
+                break
+            
+            if counter == WAIT_TIME:
+                # If waiting time is due, automatically cancel the meeting 
+                self._cancel(stage)
+                break
+            
+            counter += 1
+            time.sleep(1)
         
         ######################################
         # The rest is implemented in Django  #
@@ -1579,6 +1596,8 @@ class Interact(object):
     # Get the result
     """
     def toInvite(self):
+        # Set stage to INVT (Invitation)
+        stage = "INVT"
         
         while True:
             invite = checkInvite(self.meetingID)
@@ -1590,7 +1609,7 @@ class Interact(object):
             
             if invite == 'False': 
                 # Cancel the meeting
-                self._cancel()
+                self._cancel(stage)
                 break
             
             time.sleep(1)
@@ -1610,21 +1629,27 @@ class Interact(object):
     cancel the meeting and shutdown the agent
     
     """
-    def _cancel(self):
+    def _cancel(self,stage):
         
-        # Set stage to INVT (Invitation)
-        stage = "INVT"
         # Add meeting to dms.meeting_canceled
-        addMeetingCanceled(self.meetingID,self.hostID,self.confirmDate,self.confirmPeriod,stage)
-        # Change dms.user_msa.active to False
+        result = addMeetingCanceled(self.meetingID,self.hostID,self.confirmDate,self.confirmPeriod,stage)
+        # If successful
+        if result>0:
+            print "Added meeting_id: %s to dms.meeting_canceled"%(self.meetingID)
+        
         # Add host to dms.msa, with dms.msa.active = False, ALCC will thus shutdown the agent
+        result = addMSA(self.meetingID, self.userID, 'False')
+        if result>0:
+            print "Added meeting_id: %s and user_id: %s to dms.msa"%(self.meetingID,self.userID)
+        
+        
+        #### Change dms.user_msa.active to False ## This is done by ALCC
         
     """
     Interact._sendMessage():
     add a message to dms.message
     
     """   
-    
     def _sendMessage(self):
         pass
     

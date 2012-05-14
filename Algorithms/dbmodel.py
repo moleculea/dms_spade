@@ -174,6 +174,7 @@ tb_meeting = "meeting"
 tb_uim = "user_invitee_meeting"
 tb_user_invitee = "user_invitee"
 tb_meeting_canceled = "meeting_canceled"
+tb_msa = "msa"
 fn_conf_period = "conf_period"
 fn_meeting_id = "meeting_id"
 fn_host_id = "host_id"
@@ -186,6 +187,7 @@ fn_invitee_status = "invitee_status"
 fn_stage = "stage"
 fn_period = "period"
 fn_reason = "reason"
+fn_active = "active"
 
 """
 Prefix rules:
@@ -352,19 +354,23 @@ Return number of rows affected
 """    
 
 def addMeetingCanceled(meetingID,hostID,date,period,stage,reason=None):
-    db = mysql.connector.Connect(**config)
-    cursor = db.cursor()
-    if reason == None:
-        stdp = "INSERT INTO %s (%s,%s,%s,%s,%s) VALUES ('%s','%s','%s','%s','%s')"%(tb_meeting_canceled,fn_meeting_id, fn_host_id, fn_date, fn_period, fn_stage, meetingID, hostID, date, period, stage)                                                  
+    if not isMeetingCanceled(meetingID):
+        db = mysql.connector.Connect(**config)
+        cursor = db.cursor()
+        if reason == None:
+            stdp = "INSERT INTO %s (%s,%s,%s,%s,%s) VALUES ('%s','%s','%s','%s','%s')"%(tb_meeting_canceled,fn_meeting_id, fn_host_id, fn_date, fn_period, fn_stage, meetingID, hostID, date, period, stage)                                                  
+        else:
+            stdp = "INSERT INTO %s (%s,%s,%s,%s,%s,%s) VALUES ('%s','%s','%s','%s','%s','%s')"%(tb_meeting_canceled, fn_meeting_id, fn_host_id, fn_date, fn_period, fn_stage, fn_reason, meetingID, hostID, date, period, stage, reason)
+        #print stdp
+        cursor.execute(stdp)
+        warnings = cursor.fetchwarnings()
+        if warnings:
+            print warnings
+        db.commit()
+        return cursor.rowcount
     else:
-        stdp = "INSERT INTO %s (%s,%s,%s,%s,%s,%s) VALUES ('%s','%s','%s','%s','%s','%s')"%(tb_meeting_canceled, fn_meeting_id, fn_host_id, fn_date, fn_period, fn_stage, fn_reason, meetingID, hostID, date, period, stage, reason)
-    #print stdp
-    cursor.execute(stdp)
-    warnings = cursor.fetchwarnings()
-    if warnings:
-        print warnings
-    db.commit()
-    return cursor.rowcount
+        print "addMeetingCanceled() failed: meeting_id: %s already exists"%(meetingID)
+        return None
 
 """
 isMeetingCanceled():
@@ -374,7 +380,7 @@ Check whether a meeting is canceled (whether exists in dms.meeting_canceled)
 def isMeetingCanceled(meetingID):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    stdp = "SELECT * FROM %s WHERE %s ='%s' "%(tb_meeting_canceled, meetingID, meetingID)
+    stdp = "SELECT * FROM %s WHERE %s ='%s' "%(tb_meeting_canceled, fn_meeting_id, meetingID)
     cursor.execute(stdp)
     warnings = cursor.fetchwarnings()
     if warnings:
@@ -382,7 +388,62 @@ def isMeetingCanceled(meetingID):
     # Return number of rows
     # If meeting exists, return 1
     # else, return 0
-    return len(cursor.fetchall())
+    if len(cursor.fetchall())>0:
+        return True
+    else:
+        return False
+
+
+
+"""
+isRescheduled():
+
+Check whether a meeting is rescheduled (whether dms.meeting.reschedule = True)
+
+"""   
+
+def isRescheduled(meetingID):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT reschedule FROM %s WHERE %s ='%s' "%(tb_meeting, fn_meeting_id, meetingID)
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+    if len(cursor.fetchall())>0:
+        return True
+    else:
+        return False
+
+
+"""
+Add a user to dms.msa
+
+ALCC inspects this table and manipulates the life of agents (register and disregister)
+After manipulation ALCC empties table dms.msa, which is normally empty
+
+"""
+
+def addMSA(meetingID,userID,active):
+    rowcount = 0
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    # First check whether the userID exists in dms.msa
+    stdp = "SELECT * FROM %s WHERE %s ='%s' "%(tb_msa, fn_meeting_id, meetingID)
+    #print stdp
+    cursor.execute(stdp)
+    # If not exists
+    if len(cursor.fetchall()) == 0:
+        stdp = "INSERT INTO %s (%s,%s,%s) VALUES ('%s','%s','%s')"%(tb_msa, fn_meeting_id,  fn_user_id, fn_active, meetingID, userID, active)   
+        #print stdp
+        cursor.execute(stdp)
+        warnings = cursor.fetchwarnings()
+        if warnings:
+            print warnings
+        #db.commit()
+        rowcount = cursor.rowcount
+    return rowcount
+
 
 """
 addMessage():
@@ -404,4 +465,5 @@ if __name__ == "__main__":
     #pass
     print isInviteeVIP('23', '15')
     #addMeetingCanceled('10','2',20120603,541,'INVT')
-    print isMeetingCanceled('1')
+    #print isMeetingCanceled('1')
+    addMSA('14','26','False')
