@@ -327,27 +327,28 @@ def getConfirmPeriod(WAPList, method):
             return commonPeriod[0]
         # If multiple Common Period exist
         else:
-            if method == "AUTO":
-                wap = {}
+            wap = {}
+            
+            # Intialize wap with Common Periods and their weight to 1
+            # {common1 : 1, common2 : 2}
+            for period in commonPeriod:
+                wap[period] = 1
+            
+            # Multiple weight of Common Period in the WAPList (of each agent)
+            for period in commonPeriod:
+                for waps in WAPList:
+                    wap[period] *= waps[period]
+            # Sort the wap using sortSuccessRate()
+            # into a list tuple
+            wap = sortSuccessRate(wap)
                 
-                # Intialize wap with Common Periods and their weight to 1
-                # {common1 : 1, common2 : 2}
-                for period in commonPeriod:
-                    wap[period] = 1
-                
-                # Multiple weight of Common Period in the WAPList (of each agent)
-                for period in commonPeriod:
-                    for waps in WAPList:
-                        wap[period] *= waps[period]
-                # Sort the wap using sortSuccessRate()
-                # into a list tuple
-                wap = sortSuccessRate(wap)
+            if method == "AUTO":    
                 # No matter the weight, return the first element
                 return wap[0][0]
                 
             elif method == "PROMPT":
-                # For Interact.toConfirmPeriod()
-                pass
+                # [(period1,weight1),(period1,weight2),...]
+                return wap
                 
     # If no Common Period exists
     else:
@@ -407,12 +408,12 @@ if __name__ == "__main__":
     #print getSuccessRate(idlenessList)
     #WAPList = [{51:2,52:3,53:1,54:1,55:2},{51:3,52:1,53:1,55:2},{51:1,52:3,54:1,55:2}]
     WAPList = [{51:1,52:1,53:1,54:1,55:1},{51:1,52:1,53:1,55:1},{51:1,52:1,54:1,55:1}]
-    WAPList = [{51:1,52:1,53:1,54:1,55:1}]
+    #WAPList = [{51:1,52:1,53:1,54:1,55:1}]
     #print getCommonPeriod(WAPList)
     #print getCommonPeriod(WAPList)
     #print getConfirmPeriod(WAPList,"AUTO")
     print "ap:",bin(getAvailablePeriod(20120603, 2, 33731, 2))
     print "rp:",bin(33731)
     print "dp:",bin(33075)
-     #20120603 33731 2 host
-    print getRecomPeriod(20120602, 2, 65507, [(20120603, 4), (20120601, 2)])
+    #20120603 33731 2 host
+    print getConfirmPeriod(WAPList,'PROMPT')

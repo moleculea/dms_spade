@@ -126,9 +126,31 @@ def getStatistics(stat):
     confNum = 0
     declNum = 0
     for s in stat:
-        pass
+        if s[3] == "confirmed":
+            confNum += 1
+        elif s[3] == "declined":
+            declNum += 1
+    numstat = (confNum, declNum)
+    
+    # (confirmed_number, declined_number)
+    return numstat
 
+"""
 
+getStatInvitee(): For MSA.Invite
+
+Return inviteeList (list of invitees who are confirmed to be invited)
+
+"""
+def getStatInvitee(stat):
+    inviteeList = []
+    for s in stat:
+        if s[3] == "confirmed":
+            inviteeList.append(s[4])
+ 
+    # Return list of invitees
+    return inviteeList
+    
 """
 listEl2Str()
 Convert each element of a list into string
@@ -165,5 +187,10 @@ if __name__ == "__main__":
     #print getAverageIdleness([20120601,20120602],1,2)
     mLen = '2'
     userID = 2
-    print getAverageIdleness(dayRange, mLen, userID)
-    
+    #print getAverageIdleness(dayRange, mLen, userID)
+    date = 20120601
+    result = 'confirmed'
+    confPeriod = 232
+    sender = 'foobar'
+    stat = [(date, confPeriod, mLen, result, sender),(date, confPeriod, mLen, 'declined', sender)]
+    print getStatistics(stat)
