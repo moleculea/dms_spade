@@ -175,6 +175,8 @@ tb_uim = "user_invitee_meeting"
 tb_user_invitee = "user_invitee"
 tb_meeting_canceled = "meeting_canceled"
 tb_msa = "msa"
+tb_message = "message"
+tb_meeting_stat = "meeting_stat"
 fn_conf_period = "conf_period"
 fn_meeting_id = "meeting_id"
 fn_host_id = "host_id"
@@ -188,6 +190,12 @@ fn_stage = "stage"
 fn_period = "period"
 fn_reason = "reason"
 fn_active = "active"
+fn_content_id = "content_id"
+fn_uri = "uri"
+fn_read = "read"
+fn_stat_id = "stat_id"
+fn_confirm = "confirm"
+fn_decline = "decline"
 
 """
 Prefix rules:
@@ -440,9 +448,38 @@ def addMSA(meetingID,userID,active):
         warnings = cursor.fetchwarnings()
         if warnings:
             print warnings
-        #db.commit()
+        db.commit()
         rowcount = cursor.rowcount
     return rowcount
+
+"""
+addMeetingStat():
+
+Add meeting stat to dms.meeting_stat and then add stat_id to dms.meeting.stat_id
+"""
+
+def addMeetingStat(meetingID,confirmDate,confirmPeriod, confNum, declNum):
+    
+    # First add stat to dms.meeting_stat
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "INSERT INTO %s (%s,%s,%s,%s,%s) VALUES ('%s','%s','%s','%s','%s')"%(tb_meeting_stat,fn_meeting_id,fn_date,fn_conf_period,fn_confirm,fn_decline,meetingID,confirmDate,confirmPeriod,confNum,declNum)       
+    cursor.execute(stdp)
+    db.commit()
+    rowcount = cursor.rowcount
+    
+    if rowcount > 0:
+        # Then add stat_id to dms.meeting
+        statID = cursor.lastrowid
+        stdp = "INSERT INTO %s (%s) VALUES ('%s')"%(tb_meeting,fn_stat_id,statID)
+        cursor.execute(stdp)
+        db.commit()
+        rowcount = cursor.rowcount
+        return rowcount
+    
+    else:
+        return 0
+
 
 
 """
@@ -452,8 +489,20 @@ Add a message to dms.message
 
 """
 
-def addMessage():
-    pass
+def addMessage(userID,contentID,uri,read):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "INSERT INTO %s (%s,%s,%s,%s) VALUES ('%s','%s','%s','%s')"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read, userID,contentID,uri,read)                                                  
+    #print stdp
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+    db.commit()
+    rowcount = cursor.rowcount
+    return rowcount   
+
+
 
 
 if __name__ == "__main__":
@@ -463,7 +512,8 @@ if __name__ == "__main__":
     #print fetchPeriod(20120601,1)
     #print checkConfPeriod('1')
     #pass
-    print isInviteeVIP('23', '15')
+    #print isInviteeVIP('23', '15')
     #addMeetingCanceled('10','2',20120603,541,'INVT')
     #print isMeetingCanceled('1')
-    addMSA('14','26','False')
+    #addMSA('14','26','False')
+    print addMeetingStat(1, 20120304, 431, 3, 4)
