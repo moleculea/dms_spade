@@ -874,7 +874,7 @@ class MSA(spade.bdi.BDIAgent):
                     # Block Confirm Period
                     self.myAgent.removeBelieve("CONFIRM_PERIOD") 
                 """    
-   
+
             time.sleep(self.sleep)
                 
     """
@@ -964,13 +964,16 @@ class MSA(spade.bdi.BDIAgent):
                 # Get the statistics of meeting attendees   
                 statistics = getStatistics(self.stat) 
                 #DEBUG#print statistics
-                # Get invitees who accept the Confirmed Periods
-                inviteeList = getStatInvitee(self.stat) 
+                
+                # Get invitee IDs who confirmed the Confirmed Periods
+                confList = getConfInviteeID(self.stat)    
+                # Get invitee IDs who declined the Confirmed Periods
+                declList = getDeclInviteeID(self.stat)
+                
                 #DEBUG#print inviteeList
                 print self.myAgent.getName(),"-->MSA.Invite._process(): generating statistics and invitee list"
                 # Set receivers to those who accept the Confirmed Periods
-                self.receiverList = self.myAgent.setReceiverList(inviteeList)
-                
+                #self.receiverList = self.myAgent.setReceiverList(inviteeList)
                 
                 meetingID = self.myAgent.mt['ID']
                 userID = self.myAgent.user['ID']
@@ -984,7 +987,13 @@ class MSA(spade.bdi.BDIAgent):
                 # Add stat
                 confNum, declNum = statistics
                 addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
-
+                
+                # Update user_invitee_meeting.available
+                for c in confList:
+                    updateUIMavailable(hostID, meetingID, True)
+                for d in declList:
+                    updateUIMavailable(hostID, meetingID, False)
+                    
                 """
                 # Instantiate message
                 self.msg = spade.ACLMessage.ACLMessage() 
@@ -1038,6 +1047,7 @@ class MSA(spade.bdi.BDIAgent):
     class Feedback(spade.Behaviour.Behaviour):
     
         def onStart(self):
+            self.sleep = 1
             print self.myAgent.getName(),"-->MSA.Feedback.onStart(): starting Feedback"  
             self.meetingID = self.myAgent.mt['ID']
             self.userID = self.myAgent.user['ID']
@@ -1054,8 +1064,8 @@ class MSA(spade.bdi.BDIAgent):
                 inviteeList = []
                 
                 interact = Interact(self.meetingID, self.userID)
-                contentID = 2
-                uri = "" # To be specified
+                #contentID = 2
+                #uri = "" # To be specified
                 
                 while True:
                     # Periodically fetch result from dms.user_invitee_meeting
@@ -1071,9 +1081,10 @@ class MSA(spade.bdi.BDIAgent):
                                 # If this invitee is a VIP
                                 if isInviteeVIP(self.userID,inviteeID):
                                     inviteeList.append(inviteeID)
-                                    interact._sendMessage(contentID, uri)
+                                    #interact._sendMessage(contentID, uri)
+                                    interact.toCancel()
                                     
-                                    
+            time.sleep(self.sleep)                                    
                             
 
     """
@@ -1170,9 +1181,6 @@ class CA(spade.bdi.BDIAgent):
             # Enable ConfirmPeriod behaviour
             self.myAgent.addBelieve("RECEIVE_CONF_PERIOD")
             print self.myAgent.getName(),"-->CA.Config.onStart(): addBelieve => RECEIVE_CONF_PERIOD"
-            # Enable Feedback behaviour
-            self.myAgent.addBelieve("START_FEEDBACK")
-            print self.myAgent.getName(),"-->CA.Config.onStart(): addBelieve => START_FEEDBACK"
 
         def _process(self):
             print self.myAgent.getName(),"-->CA.Config.onStart(): CA Configuration Complete"
@@ -1229,7 +1237,7 @@ class CA(spade.bdi.BDIAgent):
                     """
                     :content
                         "((idleness
-                        :value set(
+                        :value (set
                         (20120304 5)
                         (20120305 6)
                         (20120306 3)
@@ -1426,8 +1434,13 @@ class CA(spade.bdi.BDIAgent):
                             ))"
 
                         """
-                        content = "((period :date %s :value %s :mlen %s :result confirmed :sender %s))"%(date, confPeriod, mLen, self.username)
+                        content = "((period :date %s :value %s :mlen %s :result confirmed :sender %s :sender_id %s))"%(date, confPeriod, mLen, self.username, self.userID)
                         #DEBUG#print content
+                        
+                        # Enable Feedback behaviour 
+                        # Because host may send invitation
+                        self.myAgent.addBelieve("START_FEEDBACK")
+                        print self.myAgent.getName(),"-->CA.Config.onStart(): addBelieve => START_FEEDBACK"
                     
                     else:
                         # Reply to MSA to DECLINE the Confirmed Period because of no Available Period
@@ -1442,7 +1455,7 @@ class CA(spade.bdi.BDIAgent):
                             ))"
 
                         """
-                        content = "((period :date %s :value %s :mlen %s :result declined :sender %s))"%(date, confPeriod, mLen, self.username)
+                        content = "((period :date %s :value %s :mlen %s :result declined :sender %s :sender_id %s))"%(date, confPeriod, mLen, self.username, self.userID)
                         
                     
                     # Create message
@@ -1477,21 +1490,23 @@ class CA(spade.bdi.BDIAgent):
 
 
     """
-    
+    ######### NOT IMPLEMENTED !!!! ###################
     class Feedback(spade.Behaviour.Behaviour):
         def onStart(self):
+            self.sleep = 1
+            
+            # Defunct!!!
             self.response = self.myAgent.conf['RESPONSE_METHOD']
         def _process(self):   
             if self.myAgent.askBelieve("START_FEEDBACK"):
-                pass
-        
-            """
-            Periodically inspect database to get user's feedback (ACCEPT | DECLINE)
-            Objective table: user_invitee_meeting, column: accept
-            Then send user changes as a message to MSA.Feedback
-            """
+                """
+                Periodically inspect database to get user's feedback (ACCEPT | DECLINE)
+                Objective table: user_invitee_meeting, column: accept
+                """
+
             
-             
+            time.sleep(self.sleep)
+            
     # CA._setup()    
     def _setup(self): 
         print self.getName(),"-->CA._setup(): Agent starting... adding behaviours"   
@@ -1542,6 +1557,7 @@ class Interact(object):
         self.userID = self.hostID
         self.confirmPeriod = confirmPeriod
         self.confirmDate = confirmDate
+        ##self.counter = 0  # For self.toCancel to record number of times of calling
         
     """
     # Asks the user whether to reschedule or cancel the meeting upon MSA.GeneratePeriod.scheduleFailed()
@@ -1568,8 +1584,10 @@ class Interact(object):
         # Periodically query dms.meeting and dms.meeting_canceled to check whether
         # the meeting is canceled or rescheduled
         while True:
+            # If Django added the meeting to dms.meeting_canceled
             if isMeetingCanceled(meetingID):
-                # If the meeting is canceled, break
+                # If the meeting is added to the dms.meeting_canceled, cancel the meeting, and break
+                self._cancel(stage)
                 break
             
             if isRescheduled(meetingID):
@@ -1618,6 +1636,7 @@ class Interact(object):
         # Wait until host chooses the confirmed period or the time is up
         counter = 0
         while True:
+            # invite = dms.meeting.conf_period
             confirmPeriod = checkConfPeriod(self.meetingID)
             if confirmPeriod != 'True':
                 break
@@ -1638,6 +1657,7 @@ class Interact(object):
     """    
     # Asks the user whether to invite, cancel or reschedule upon CAs' confirmations
     # Get the result
+    # Called in MSA.Invitee
     """
     def toInvite(self):
         # Set stage to INVT (Invitation)
@@ -1646,6 +1666,7 @@ class Interact(object):
         
         # Indefinitely waiting for host's choice
         while True:
+            # invite = dms.meeting.invite
             invite = checkInvite(self.meetingID)
             
             # If host chooses to send invitation
@@ -1655,10 +1676,12 @@ class Interact(object):
             
             if invite == 'True':
                 result = True
+                # Send system messages to invitees
+                self._toAcceptInvite()
                 break
                 # Then process goes on to START_FEEDBACK
             
-            if invite == 'False': 
+            elif invite == 'False': 
                 # Cancel the meeting
                 self._cancel(stage)
                 result = False
@@ -1670,19 +1693,59 @@ class Interact(object):
     
      
     """
-    # Asks the user whether to cancel or continue upon any VIP's delayed refusal
+    # Asks the user whether to cancel, reschedule or continue upon any VIP's delayed refusal
     # Get the result
     # This method is called in MSA.Feedback
     
     """
     def toCancel(self):
-
-        #read = False
+        WAIT_TIME = 30
+        
+        read = False
         contentID = 2
         uri = "" # To be specified
         
         self._sendMessage(contentID, uri)
         
+        # Inspect host's response
+        # Waiting for WAIT_TIME
+        counter = 0
+        while True:
+            # invite = dms.meeting.cancel
+            cancel = checkMeetingToCancel(self.meetingID)
+            
+            if cancel == 'True':
+                self._cancel(stage)
+                break
+            
+            # If cancel is False, continue this loop and Feedback behaviour
+            elif cancel == 'False':
+                pass
+            
+            if counter == WAIT_TIME:
+                break
+            
+            counter += 1
+            time.sleep(1)
+        
+    """   
+    # Asks Invitee whether to accept the invitation   
+    """
+    
+    def _toAcceptInvite(self):
+        
+        contentID = 5 # Accept Invitation?
+        uri = "" # To be specified
+        read = False
+        # Get invitee id list
+        inviteeList = inspectUIM(self.meetingID,self.hostID)
+        # The the first element of each 2-tuple in the list
+        sequence = [(invitee[0],contentID,uri,read) for invitee in inviteeList]
+        result = addManyMessage(sequence)
+        
+        if result>0:
+            print "Added many messages to dms.message"
+
 
     """
     Interact._cancel():

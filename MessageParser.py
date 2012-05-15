@@ -151,8 +151,9 @@ def SL0ParseStat(content):
     mLen = msg.period.mlen
     result = msg.period.result
     sender = msg.period.sender
+    sender_id = msg.period.sender_id
     #print mLen
-    return (int(date[0]), int(confPeriod[0]), int(mLen[0]), result[0], sender[0])
+    return (int(date[0]), int(confPeriod[0]), int(mLen[0]), result[0], sender[0], sender_id[0])
 
 if __name__ == "__main__":
     content ="""

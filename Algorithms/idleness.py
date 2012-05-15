@@ -137,19 +137,36 @@ def getStatistics(stat):
 
 """
 
-getStatInvitee(): For MSA.Invite
+getConfInviteeID(): For MSA.Invite
 
-Return inviteeList (list of invitees who are confirmed to be invited)
+Return invitee ID list(list of invitee IDs who confirmed the Confirmed Period)
 
 """
-def getStatInvitee(stat):
+def getConfInviteeID(stat):
     inviteeList = []
     for s in stat:
         if s[3] == "confirmed":
-            inviteeList.append(s[4])
+            inviteeList.append(s[5])
  
     # Return list of invitees
     return inviteeList
+
+"""
+
+getDeclInviteeID(): For MSA.Invite
+
+Return invitee ID list(list of invitee IDs who declined the Confirmed Period)
+
+"""
+def getDeclInviteeID(stat):
+    inviteeList = []
+    for s in stat:
+        if s[3] == "declined":
+            inviteeList.append(s[5])
+ 
+    # Return list of invitees
+    return inviteeList
+
     
 """
 listEl2Str()

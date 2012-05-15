@@ -175,6 +175,9 @@ tb_uim = "user_invitee_meeting"
 tb_user_invitee = "user_invitee"
 tb_meeting_canceled = "meeting_canceled"
 tb_msa = "msa"
+tb_ca = "ca"
+tb_user_msa = "user_msa"
+tb_user_ca = "user_ca"
 tb_message = "message"
 tb_meeting_stat = "meeting_stat"
 fn_conf_period = "conf_period"
@@ -196,6 +199,9 @@ fn_read = "read"
 fn_stat_id = "stat_id"
 fn_confirm = "confirm"
 fn_decline = "decline"
+fn_cancel = "cancel"
+fn_reschedule = "reschedule"
+fn_user_name = "user_name"
 
 """
 Prefix rules:
@@ -331,6 +337,25 @@ def inspectUIM(meetingID, hostID):
 
 
 """
+updateUIMavailable()
+
+
+"""
+
+def updateUIMavailable(hostID, meetingID, value):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s' AND %s ='%s'"%(tb_uim, fn_available, value, fn_meeting_id, meetingID, fn_host_id, hostID )
+    #print stdp
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings   
+    db.commit()
+    return cursor.rowcount
+
+
+"""
 isInviteeVIP():
 
 Check whether an Invitee is VIP to a Host
@@ -396,7 +421,8 @@ def isMeetingCanceled(meetingID):
     # Return number of rows
     # If meeting exists, return 1
     # else, return 0
-    if len(cursor.fetchall())>0:
+    result = cursor.fetchall()
+    if len(result)>0:
         return True
     else:
         return False
@@ -404,24 +430,77 @@ def isMeetingCanceled(meetingID):
 
 
 """
+isMeetingToCancel():
+
+Check whether a meeting is to be canceled (check the value of dms.meeting.cancel)
+"""
+
+def checkMeetingToCancel(meetingID):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT %s FROM %s WHERE %s ='%s' "%(fn_cancel, tb_meeting, fn_meeting_id, meetingID)
+    cursor.execute(stdp)
+    row = cursor.fetchone()
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings    
+    if row == None:
+        return None
+    else:
+        return row[0]
+
+"""
 isRescheduled():
 
 Check whether a meeting is rescheduled (whether dms.meeting.reschedule = True)
+
+Called by ALCC
 
 """   
 
 def isRescheduled(meetingID):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    stdp = "SELECT reschedule FROM %s WHERE %s ='%s' "%(tb_meeting, fn_meeting_id, meetingID)
+    stdp = "SELECT %s FROM %s WHERE %s ='%s' "%(tb_meeting,fn_reschedule, fn_meeting_id, meetingID)
     cursor.execute(stdp)
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
-    if len(cursor.fetchall())>0:
+    result = cursor.fetchall()
+    if len(result) > 0:
         return True
     else:
         return False
+
+
+"""
+refreshMeeting()
+
+Clear important columns into initial default values (those other than initial parameters)
+
+Columns to be cleared:
+* conf_period   => NULL
+* choose_period => NULL
+* invite        => NULL
+* cancel        => NULL
+* stat_id       => NULL
+* reschedule    => NULL
+
+"""
+
+def refreshMeeting(meetingID):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    null = 'NULL'
+    stdp = "UPDATE %s SET %s = '%s', %s = '%s', %s = '%s', %s = '%s', %s = '%s', %s = '%s' WHERE %s ='%s"%(tb_meeting, fn_conf_period, null, fn_choose_period, null, fn_invite, null, fn_cancel, null, fn_stat_id, null, fn_reschedule, null )
+    #print stdp
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings   
+    db.commit()
+    return cursor.rowcount
+
 
 
 """
@@ -441,7 +520,8 @@ def addMSA(meetingID,userID,active):
     #print stdp
     cursor.execute(stdp)
     # If not exists
-    if len(cursor.fetchall()) == 0:
+    result = cursor.fetchall()
+    if len(result) == 0:
         stdp = "INSERT INTO %s (%s,%s,%s) VALUES ('%s','%s','%s')"%(tb_msa, fn_meeting_id,  fn_user_id, fn_active, meetingID, userID, active)   
         #print stdp
         cursor.execute(stdp)
@@ -451,6 +531,165 @@ def addMSA(meetingID,userID,active):
         db.commit()
         rowcount = cursor.rowcount
     return rowcount
+
+
+"""
+checkMSA()
+
+Check dms.msa
+For ALCC inspection
+
+"""
+
+def checkMSA():
+    
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT * FROM %s "%(tb_msa)
+    cursor.execute(stdp)
+    
+    warnings = cursor.fetchwarnings()   
+    if warnings:
+        print warnings
+        
+    result = cursor.fetchall()    
+    if len(result) > 0:
+        return result
+    else:
+        return None
+
+"""
+emptyMSA()
+
+Empty (truncate) dms.msa
+For ALCC inspection
+
+"""
+
+def emptyMSA():
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "TRUNCATE TABLE %s "%(tb_msa)
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()   
+    if warnings:
+        print warnings
+    db.commit()
+    #return cursor.rowcount # always 0
+"""
+checkCA()
+
+Check dms.ca
+For ALCC inspection
+
+"""
+
+def checkCA():
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT * FROM %s "%(tb_ca)
+    print stdp
+    cursor.execute(stdp)
+    
+    warnings = cursor.fetchwarnings()   
+    if warnings:
+        print warnings
+
+    result = cursor.fetchall()    
+    if len(result) > 0:
+        return result
+    else:
+        return None
+"""
+emptyCA()
+
+Empty (truncate) dms.ca
+For ALCC inspectionmsa
+
+"""
+
+def emptyCA():
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "TRUNCATE TABLE %s "%(tb_ca)
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()   
+    if warnings:
+        print warnings
+    db.commit()
+    #return cursor.rowcount # always 0
+
+
+"""
+updateUserMSA()
+
+Update dms.user_msa.active
+
+
+"""
+
+def updateUserMSA(userID, active):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "UPDATE %s SET %s = '%s' WHERE %s = '%s'"%(tb_user_msa, fn_active, active, fn_user_id,userID)   
+    #print stdp
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+    db.commit()
+    rowcount = cursor.rowcount
+    return rowcount
+
+
+
+"""
+updateUserCA()
+
+Update dms.user_ca.active
+
+
+"""
+
+def updateUserCA(userID):
+    
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "UPDATE %s SET %s = '%s' WHERE %s = '%s'"%(tb_user_ca, fn_active, active, fn_user_id,userID)   
+    #print stdp
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+    db.commit()
+    rowcount = cursor.rowcount
+    return rowcount
+
+
+"""
+getAcceptUserCA()
+
+Get dms.user_ca.accept of a user, which is the default config for whether accepting invitation
+
+"""
+
+
+def getAcceptUserCA(userID):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT %s FROM %s WHERE %s = '%s'"%(fn_accept, tb_user_ca, fn_user_id, userID)
+    cursor.execute(stdp)
+    
+    row = cursor.fetchone()
+    
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+            
+    if row == None:
+        return None
+    else:
+        return row[0]
 
 """
 addMeetingStat():
@@ -481,6 +720,45 @@ def addMeetingStat(meetingID,confirmDate,confirmPeriod, confNum, declNum):
         return 0
 
 
+"""
+getMeeting()
+
+Get the initial paramters and other values of a meeting
+
+result:
+
+* [0] meeting_id 
+* [1] host_id
+* [2] length
+* [3] day_range
+* [4] pref
+* [5] topic
+* [6] location
+* [7] search_bias
+* [8] delimit
+* [9] conf_method
+
+"""
+
+def getMeeting(meetingID):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT * FROM %s WHERE %s = '%s'"%(tb_meeting, fn_meeting_id, meetingID )
+    cursor.execute(stdp)
+    
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+        
+    result = cursor.fetchall()
+    
+    if len(result) > 0:
+        return result
+    else:
+        return None
+
+
+
 
 """
 addMessage():
@@ -503,6 +781,49 @@ def addMessage(userID,contentID,uri,read):
     return rowcount   
 
 
+"""
+addManyMessage():
+
+Add multiple messages to dms.message
+
+Sequence is a list of 4-tuple
+"""
+def addManyMessage(sequence):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    st = "INSERT INTO %s (%s,%s,%s,%s) VALUES"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read)                                                  
+    #print stdp
+    cursor.executemany(st+"('%s','%s','%s','%s')",sequence)    
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+    db.commit()
+    rowcount = cursor.rowcount
+    return rowcount   
+
+"""
+getUsername()
+
+Get the user_name with userID
+
+"""
+
+def getUsername(userID):
+    
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT %s FROM %s WHERE %s = '%s'"%(fn_user_name, tb_user, fn_user_id, userID)
+    cursor.execute(stdp)   
+    row = cursor.fetchone()
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+            
+    if row == None:
+        return None
+    else:
+        return row[0]
+
 
 
 if __name__ == "__main__":
@@ -516,4 +837,6 @@ if __name__ == "__main__":
     #addMeetingCanceled('10','2',20120603,541,'INVT')
     #print isMeetingCanceled('1')
     #addMSA('14','26','False')
-    print addMeetingStat(1, 20120304, 431, 3, 4)
+    #print addMeetingStat(1, 20120304, 431, 3, 4)
+    #print emptyCA()
+    print updateUserMSA('1',True)
