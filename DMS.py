@@ -963,37 +963,37 @@ class MSA(spade.bdi.BDIAgent):
                 
                 # Get the statistics of meeting attendees   
                 statistics = getStatistics(self.stat) 
-                #DEBUG#print statistics
+
+                # Variables used in the following codes
+                meetingID = self.myAgent.mt['ID']
+                userID = self.myAgent.user['ID']
+                hostID = userID
+                confirmPeriod = self.myAgent.confirmPeriod
+                confirmDate = self.myAgent.confirmDate
+                
+                # Add the stat to dms.meeitng_stat
+                confNum, declNum = statistics
+                addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
                 
                 # Get invitee IDs who confirmed the Confirmed Periods
                 confList = getConfInviteeID(self.stat)    
                 # Get invitee IDs who declined the Confirmed Periods
                 declList = getDeclInviteeID(self.stat)
                 
-                #DEBUG#print inviteeList
-                print self.myAgent.getName(),"-->MSA.Invite._process(): generating statistics and invitee list"
-                # Set receivers to those who accept the Confirmed Periods
-                #self.receiverList = self.myAgent.setReceiverList(inviteeList)
-                
-                meetingID = self.myAgent.mt['ID']
-                userID = self.myAgent.user['ID']
-                confirmPeriod = self.myAgent.confirmPeriod
-                confirmDate = self.myAgent.confirmDate
-                
-                # Call Interact.toInvite()
-                interact = Interact(meetingID, userID, confirmPeriod, confirmDate)
-                result = interact.toInvite()
-                
-                # Add stat
-                confNum, declNum = statistics
-                addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
-                
                 # Update user_invitee_meeting.available
                 for c in confList:
                     updateUIMavailable(hostID, meetingID, True)
+                    
                 for d in declList:
                     updateUIMavailable(hostID, meetingID, False)
-                    
+                
+                # Add the meeting to dms.meeting_success
+                addMeetingSuccess(meetingID, hostID, confirmDate, confirmPeriod)
+                
+                # Call Interact.toInvite() to indefinitely wait for host's response
+                interact = Interact(meetingID, userID, confirmPeriod, confirmDate)
+                result = interact.toInvite()
+                
                 """
                 # Instantiate message
                 self.msg = spade.ACLMessage.ACLMessage() 
@@ -1147,7 +1147,7 @@ Common Agent (CA) classes:
 class CA(spade.bdi.BDIAgent):
     
     # initialize() initializes variables for this agent to avoid overwriting __init__()
-    def initialize(self, user, conf):
+    def initialize(self, user, conf=None):
         
         self.user = user  # User data (dict) {'ID':'USER_ID','NAME':'USER_NAME'}
         self.conf = conf  # Configuration variables (dict) {'RESPONSE_METHOD':ACCEPT | DECLINE | SILENT}
@@ -1689,8 +1689,7 @@ class Interact(object):
                 # Then process blocks the Behaviour
                 
             time.sleep(1)
-        return result    
-    
+        return result
      
     """
     # Asks the user whether to cancel, reschedule or continue upon any VIP's delayed refusal

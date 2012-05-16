@@ -9,12 +9,19 @@ config = Config.dbinfo().copy() # Initialization
 
 # Global variables
 tb_user_agenda = "user_agenda"      # Table name of user agenda
+################################################################
+tb_user = "user_spade"              # Table name of user
+################################################################
+tb_user_invitee = "user_invitee"
 fn_daily_period = "daily_period"    # Field name of daily period
 fn_preferred_period = "pref_period"
 fn_best_period = "best_period"
 fn_date = "date"                    # Field name of date
 fn_user_id = "user_id"              # Field name of user id
-
+fn_host_id = "host_id"
+fn_user_name = "user_name"
+fn_invitee_id = "invitee_id"
+fn_invitee_status = "invitee_status"
 
 """
 fetchPeriod()
@@ -119,16 +126,15 @@ def retrieveInvitee(userID, sgroup):
     
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    
+    """
     tb_user_invitee = "user_invitee"
-    tb_user = "user"
     fn_user_id = "user_id"
     fn_host_id = "host_id"
     fn_user_name = "user_name"
     fn_invitee_id = "invitee_id"
     fn_invitee_status = "invitee_status"
     
-    """
+    
     sgroup=="VIP_INVITEE":
     
     SELECT user_name FROM user INNER JOIN user_invitee ON user.user_id = user_invitee.invitee_id WHERE user_invitee.host_id = userID AND user_invitee.invitee_status = sgroup 
@@ -174,6 +180,7 @@ tb_meeting = "meeting"
 tb_uim = "user_invitee_meeting"
 tb_user_invitee = "user_invitee"
 tb_meeting_canceled = "meeting_canceled"
+tb_meeting_success = "meeting_success"
 tb_msa = "msa"
 tb_ca = "ca"
 tb_user_msa = "user_msa"
@@ -449,6 +456,30 @@ def checkMeetingToCancel(meetingID):
     else:
         return row[0]
 
+
+"""
+addMeetingSuccess()
+
+Add a meeting to dms.meeting_success
+Return number of rows affected
+"""    
+
+def addMeetingSuccess(meetingID, hostID, confirmDate, confirmPeriod):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "INSERT INTO %s (%s,%s,%s,%s) VALUES ('%s','%s','%s','%s')"%(tb_meeting_success, fn_meeting_id, fn_host_id, fn_date, fn_period, meetingID, hostID, confirmDate, confirmPeriod)         
+                                
+    cursor.execute(stdp)
+    
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+        
+    db.commit()
+    return cursor.rowcount   
+
+
+
 """
 isRescheduled():
 
@@ -588,7 +619,7 @@ def checkCA():
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
     stdp = "SELECT * FROM %s "%(tb_ca)
-    print stdp
+    #print stdp
     cursor.execute(stdp)
     
     warnings = cursor.fetchwarnings()   
@@ -746,17 +777,16 @@ def getMeeting(meetingID):
     stdp = "SELECT * FROM %s WHERE %s = '%s'"%(tb_meeting, fn_meeting_id, meetingID )
     cursor.execute(stdp)
     
+    result = cursor.fetchone()
+    
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
-        
-    result = cursor.fetchall()
-    
-    if len(result) > 0:
-        return result
-    else:
+            
+    if row == None:
         return None
-
+    else:
+        return result
 
 
 
