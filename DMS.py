@@ -78,9 +78,13 @@ class MSA(spade.bdi.BDIAgent):
         #self.myAgent.stop()## ALCC is responsible for agent's life
         # Call interact.failed to wait for user's decision
         meetingID = self.myAgent.mt['ID']
+        userID = self.myAgent.user['ID']
+        print "000000000000000000000000"
+        print meetingID
         interact = Interact(meetingID)
+        print "%%%%%%%%%%%%%%%"
         interact.failed()
-        
+        print "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
     
     def toConfirmPeriod(self,value):
         meetingID = self.myAgent.mt['ID']
@@ -202,11 +206,9 @@ class MSA(spade.bdi.BDIAgent):
             
             # Initialize inviteeList as a list to get invitee name from generator retrieveInvitee()
 
-            """
-            FST : ALL_INVITEE
-            """
-            #FST##inviteeList = getInviteeList(userID, sgroup)
-            inviteeList = ['vip1','vip2','vip3','ci1','ci2','ci3']
+
+            inviteeList = getInviteeList(userID, sgroup)
+            #inviteeList = ['vip1','vip2','vip3','ci1','ci2','ci3']
             
             # allInviteeNum is the number of invitees in "ALL_INVITEE"
             # self.myAgent.allInviteeNum is number of all invitees in host's invitee list
@@ -310,11 +312,8 @@ class MSA(spade.bdi.BDIAgent):
             userID = self.myAgent.user['ID']
             sgroup = "VIP_INVITEE"
     
-            """
-            FST : ALL_INVITEE
-            """
-            #FST##inviteeList = getInviteeList(userID, sgroup)
-            inviteeList = ['vip1','vip2','vip3']
+            inviteeList = getInviteeList(userID, sgroup)
+            #inviteeList = ['vip1','vip2','vip3']
             
             # Set receiver list to only VIP invitees
             self.receiverList = self.myAgent.setReceiverList(inviteeList) 
@@ -659,8 +658,8 @@ class MSA(spade.bdi.BDIAgent):
             """
             FST : ALL_INVITEE
             """
-            #FST##inviteeList = getInviteeList(userID, sgroup)
-            inviteeList = ['vip1','vip2','vip3','ci1','ci2','ci3']
+            inviteeList = getInviteeList(userID, sgroup)
+            #inviteeList = ['vip1','vip2','vip3','ci1','ci2','ci3']
             
             # Set receiver list to all invitees
             self.receiverList = self.myAgent.setReceiverList(inviteeList) 
@@ -962,6 +961,7 @@ class MSA(spade.bdi.BDIAgent):
                 #pdb.set_trace()         
                 
                 # Get the statistics of meeting attendees   
+                # getStatistics in idleness.py
                 statistics = getStatistics(self.stat) 
 
                 # Variables used in the following codes
@@ -974,18 +974,22 @@ class MSA(spade.bdi.BDIAgent):
                 # Add the stat to dms.meeitng_stat
                 confNum, declNum = statistics
                 #addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
-                addMeetingStat(confirmDate, confirmPeriod, confNum, declNum)
+                addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
+                
                 # Get invitee IDs who confirmed the Confirmed Periods
-                confList = getConfInviteeID(self.stat)    
+                confList = getConfInviteeID(self.stat)
+                
                 # Get invitee IDs who declined the Confirmed Periods
                 declList = getDeclInviteeID(self.stat)
                 
                 # Update user_invitee_meeting.available
-                for c in confList:
-                    updateUIMavailable(hostID, meetingID, True)
+                for c_id in confList:
+                    inviteeID = c_id
+                    updateUIMavailable(hostID, inviteeID, meetingID, True)
                     
-                for d in declList:
-                    updateUIMavailable(hostID, meetingID, False)
+                for d_id in declList:
+                    inviteeID = d_id
+                    updateUIMavailable(hostID, inviteeID, meetingID, False)
                 
                 # Add the meeting to dms.meeting_success
                 addMeetingSuccess(meetingID, hostID, confirmDate, confirmPeriod)
@@ -1547,6 +1551,7 @@ class CA(spade.bdi.BDIAgent):
 Interact:
 Interact with users based on messages
 Implemented at the last stage
+
 """
 class Interact(object):
     
@@ -1565,31 +1570,39 @@ class Interact(object):
     """
     
     def failed(self):
+
         read = False
         contentID = 1 # Failed
         uri = "" # To be specified
         
         stage = 'GEN'
         WAIT_TIME = 60
-        # Update dms.meeting.conf_period tp False to fail the meeting
+        
+        # Update dms.meeting.conf_period to False to fail the meeting
         result = updateConfPeriod(self.meetingID,'False')
+
         if result > 0:
-            print "Updated dms.meeting.conf_period: => False"
+            print "Interact.failed() --> Updated dms.meeting.conf_period: => False"
 
         # Send the system message to user
         self._sendMessage(contentID, uri)
-        
+
         counter = 0
-        
+        meetingID = self.meetingID
         # Waiting for the host
         # Periodically query dms.meeting and dms.meeting_canceled to check whether
         # the meeting is canceled or rescheduled
+        print "Interact.failed()  --> Waiting for the host's choice"
         while True:
+            
+            """
             # If Django added the meeting to dms.meeting_canceled
             if isMeetingCanceled(meetingID):
+                print "Interact.failed()  --> Meeting is alreay in dms.meeting_canceled, now cancel it"
                 # If the meeting is added to the dms.meeting_canceled, cancel the meeting, and break
                 self._cancel(stage)
                 break
+            """
             
             if isRescheduled(meetingID):
                 # If the meeting is rescheduled, break
@@ -1616,7 +1629,7 @@ class Interact(object):
         contentID = 2 # Confirm Period?
         uri = "" # To be specified
         
-        WAIT_TIME = 60
+        WAIT_TIME = 10
         confirmPeriod = None
         
         # Join the value (wPeriod)(list of 2-tuples) into a string
@@ -1626,18 +1639,18 @@ class Interact(object):
             period_list.append(str(tuple[0]))
             
         value = ";".join(period_list)
-        
-        
+        #print value
         # Update dms.meeting.choose_period
         result = updateChoosePeriod(self.meetingID,value)
         
         if result > 0:
-            print "Updated dms.meeting.choose_period: => %s"%value
+            print "Interact.toConfirmPeriod() --> Updated dms.meeting.choose_period: => %s"%value
         
         # Update dms.meeting.conf_period tp True to wait for host's response to choose
+        print result
         result = updateConfPeriod(self.meetingID,'True')
         if result > 0:
-            print "Updated dms.meeting.conf_period: => True"
+            print "Interact.toConfirmPeriod()  --> Updated dms.meeting.conf_period: => True"
         
         # Send the message to the host
         self._sendMessage(contentID, uri)    
@@ -1645,8 +1658,9 @@ class Interact(object):
         # Periodically query dms.meeting.conf_period to see if user chooses the confirmed period
         # Wait until host chooses the confirmed period or the time is up
         counter = 0
+        print "Interact.toConfirmPeriod()  --> Waiting for the host's choice"
         while True:
-            # invite = dms.meeting.conf_period
+            # confirmPeriod = dms.meeting.conf_period
             confirmPeriod = checkConfPeriod(self.meetingID)
             if confirmPeriod != 'True':
                 break
@@ -1675,6 +1689,7 @@ class Interact(object):
         result = None
         
         # Indefinitely waiting for host's choice
+        print "Interact.toInvite() --> Waiting (indefinitely) for host's choice"
         while True:
             # invite = dms.meeting.invite
             invite = checkInvite(self.meetingID)
@@ -1720,6 +1735,7 @@ class Interact(object):
         # Inspect host's response
         # Waiting for WAIT_TIME
         counter = 0
+        print "Interact.toCancel() --> Waiting for host's choice"
         while True:
             # cancel = dms.meeting.cancel
             cancel = checkMeetingToCancel(self.meetingID)
@@ -1749,12 +1765,14 @@ class Interact(object):
         read = False
         # Get invitee id list
         inviteeList = inspectUIM(self.meetingID,self.hostID)
+        
         # The the first element of each 2-tuple in the list
         sequence = [(invitee[0],contentID,uri,read) for invitee in inviteeList]
+        print sequence
         result = addManyMessage(sequence)
         
         if result>0:
-            print "Added many messages to dms.message"
+            print "Interact --> Added many messages to dms.message"
 
 
     """
@@ -1766,14 +1784,15 @@ class Interact(object):
         
         # Add meeting to dms.meeting_canceled
         result = addMeetingCanceled(self.meetingID,self.hostID,self.confirmDate,self.confirmPeriod,stage)
+        
         # If successful
         if result>0:
-            print "Added meeting_id: %s to dms.meeting_canceled"%(self.meetingID)
+            print "Interact._cancel() --> Added meeting_id: %s to dms.meeting_canceled"%(self.meetingID)
         
         # Add host to dms.msa, with dms.msa.active = False, ALCC will thus shutdown the agent
         result = addMSA(self.meetingID, self.userID, 'False')
         if result>0:
-            print "Added meeting_id: %s and user_id: %s to dms.msa"%(self.meetingID,self.userID)
+            print "Interact --> Added meeting_id: %s and user_id: %s to dms.msa"%(self.meetingID,self.userID)
         
         
         #### Change dms.user_msa.active to False ## This is done by ALCC
@@ -1787,7 +1806,7 @@ class Interact(object):
         
         result = addMessage(self.userID,contentID,uri,read)
         if result > 0:
-            print "Add a message with user_id: %s to dms.message"%(self.userID)
+            print "Interact --> Add a message with user_id: %s to dms.message"%(self.userID)
     
 """
 FST: First Stage Test

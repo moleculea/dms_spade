@@ -76,7 +76,8 @@ def msaControl():
                     meeting[user] = meetingID
                     
                     # Update dms.user_msa.active of this user to True
-                    updateUserMSA(userID, True)
+                    ### Already True
+                    #updateUserMSA(userID, True)
                     
             # If active is False, shutdown MSA 
             if active == 'False': 
@@ -88,7 +89,7 @@ def msaControl():
     else:
         print "ALCC --> msaControl(): No request to start/shutdown MSA"
                   
-                    
+
 """
 caControl()
 
@@ -120,13 +121,14 @@ def caControl():
                 else:
 
                     # Instantiate and start CA with accept as default config for accepting invitations
-                    ca = startCA(user)
+                    ca = startCA(userID,user)
                     
                     # Append the instance to the dictionary
                     livingCA[user] = ca
                     
                     # Update dms.user_ca.active of this user to True
-                    updateUserCA(userID,True)
+                    ### Already True
+                    #updateUserCA(userID, True)
                     
             # If active is False, shutdown CA
             if active == 'False': 
@@ -154,7 +156,7 @@ def reschedule():
         for user, meetingID in meeting.items():
             print "ALCC --> reschedule(): Checking dms.meeting.reschedule for reschedule request"
             result = isRescheduled(meetingID)
-            
+            print result
             # If dms.meeting.reschedule is True
             if result:
                 # Get the instance of this user's MSA
@@ -195,6 +197,7 @@ def startMSA(userID, username, meetingID):
     conf = {}
     
     result = getMeeting(meetingID)
+    #print result
     """
     result:
     
@@ -220,22 +223,28 @@ def startMSA(userID, username, meetingID):
     dayRange = listEl2Int(dayRange)
     
     # Struct length
-    mLen = int(result[4])
+    mLen = int(result[2])
     
     # Struct pref
-    pPeriod = int(result[5])
+    pPeriod = int(result[4])
     
     # Struct mt
     mt['ID'] = meetingID
     
     # Struct conf
+    conf = {}
+    conf['SEARCH_BIAS'] = {}
+    conf['CONFIRM_METHOD'] = {}
+    
     conf['SEARCH_BIAS']['METHOD'] = result[7]
     conf['SEARCH_BIAS']['DELIMIT'] = result[8]
     conf['CONFIRM_METHOD']['METHOD_NAME'] = result[9]
-    
+    print conf
     # Instantiate MSA
-    msa = DMS.MSA("%s.msa@%s"%(user, hostname), password) 
-
+    #print "%s.msa@%s"%(user, hostname)
+    
+    msa = DMS.MSA("%s.msa@%s"%(username, hostname), password) 
+    #print msa
     # Initialize parameters
     msa.initialize(user,dayRange,pPeriod,mLen,mt,conf)
     msa.start()
@@ -247,11 +256,12 @@ startCA()
 Instantiate CA, initialize initial parameters and start it
 
 """        
-def startCA(username):
+def startCA(userID,username):
     
     print "ACLL: --> startMSA(): Ready to start CA for " + username
     # Instantiate CA
-    ca = DMS.CA("%s.msa@%s"%(username, hostname), password) 
+    ca = DMS.CA("%s.ca@%s"%(username, hostname), password) 
+    user = {'NAME':username,'ID':userID}
     
     # Initialize parameters
     ca.initialize(user)
@@ -342,5 +352,9 @@ if __name__ == "__main__":
     
     # Interval of loop
     interval = 2
-    main(interval)
+    try:
+        main(interval)
+    # Control-C to exit
+    except KeyboardInterrupt:
+        exit()
     

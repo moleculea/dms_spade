@@ -141,15 +141,16 @@ def retrieveInvitee(userID, sgroup):
     """
     
     if sgroup=="VIP_INVITEE":
-        sgroup = "VIP"
+        sgroup = "1"
         stiv = "SELECT `%s` FROM `%s` INNER JOIN `%s` ON %s.%s = %s.%s WHERE %s.%s = '%s' AND  %s.%s = '%s'"%(fn_user_name,tb_user,tb_user_invitee,tb_user,fn_user_id,tb_user_invitee,fn_invitee_id,tb_user_invitee,fn_host_id,
         userID,tb_user_invitee,fn_invitee_status,sgroup)
+        #print stiv
         
     elif sgroup=="ALL_INVITEE":
         stiv = "SELECT `%s` FROM `%s` INNER JOIN `%s` ON %s.%s = %s.%s WHERE %s.%s = '%s'"%(fn_user_name,tb_user,tb_user_invitee,tb_user,fn_user_id,tb_user_invitee,fn_invitee_id,tb_user_invitee,fn_host_id,userID,tb_user_invitee)
         
     elif sgroup=="COMMON_INVITEE":
-        sgroup = "VIP"
+        sgroup = "1"
         stiv = "SELECT `%s` FROM `%s` INNER JOIN `%s` ON %s.%s = %s.%s WHERE %s.%s = '%s' AND  %s.%s <> '%s'"%(fn_user_name,tb_user,tb_user_invitee,tb_user,fn_user_id,tb_user_invitee,fn_invitee_id,tb_user_invitee,fn_host_id,
         userID,tb_user_invitee,fn_invitee_status,sgroup)
     
@@ -209,6 +210,8 @@ fn_decline = "decline"
 fn_cancel = "cancel"
 fn_reschedule = "reschedule"
 fn_user_name = "user_name"
+fn_length = "length"
+
 
 """
 Prefix rules:
@@ -228,7 +231,9 @@ value: False | period (int)
 def updateConfPeriod(meetingID, value):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s'"%(tb_meeting, fn_conf_period, 'False', fn_meeting_id, meetingID)
+    
+    stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s'"%(tb_meeting, fn_conf_period, value, fn_meeting_id, meetingID)
+    
     #print stdp
     cursor.execute(stdp)
     warnings = cursor.fetchwarnings()
@@ -327,12 +332,14 @@ inspectUIM():
 
 Called by MSA.Feedback
 Inspect dms.user_invitee_meeting table
+Return list of 2-tuples of invitees whose agenda is available (dms.user_invitee_meeting.available)
+
 """
 def inspectUIM(meetingID, hostID):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
     stdp = "SELECT %s,%s FROM %s WHERE %s ='%s' AND %s = '%s' AND %s = '%s'"%(fn_invitee_id,fn_accept,tb_uim,fn_meeting_id,meetingID,fn_host_id,hostID,fn_available,'True')
-    #print stdp
+    print stdp
     cursor.execute(stdp)
     rows = cursor.fetchall()
     warnings = cursor.fetchwarnings()
@@ -349,10 +356,10 @@ updateUIMavailable()
 
 """
 
-def updateUIMavailable(hostID, meetingID, value):
+def updateUIMavailable(hostID, inviteeID, meetingID, value):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s' AND %s ='%s'"%(tb_uim, fn_available, value, fn_meeting_id, meetingID, fn_host_id, hostID )
+    stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s' AND %s ='%s' AND %s ='%s'"%(tb_uim, fn_available, value, fn_meeting_id, meetingID, fn_host_id, hostID, fn_invitee_id, inviteeID )
     #print stdp
     cursor.execute(stdp)
     warnings = cursor.fetchwarnings()
@@ -496,13 +503,15 @@ Called by ALCC
 def isRescheduled(meetingID):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    stdp = "SELECT %s FROM %s WHERE %s ='%s' "%(tb_meeting,fn_reschedule, fn_meeting_id, meetingID)
+    stdp = "SELECT %s FROM %s WHERE %s ='%s' "%(fn_reschedule,tb_meeting, fn_meeting_id, meetingID)
+    #print stdp
     cursor.execute(stdp)
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
-    result = cursor.fetchall()
-    if len(result) > 0:
+    result = cursor.fetchone()
+    #print result[0]
+    if result[0]:
         return True
     else:
         return False
@@ -514,21 +523,24 @@ refreshMeeting()
 Clear important columns into initial default values (those other than initial parameters)
 
 Columns to be cleared:
-* conf_period   => NULL
-* choose_period => NULL
-* invite        => NULL
-* cancel        => NULL
+* length        => 0
+* conf_period   => NULL (empty)
+* choose_period => NULL (empty)
+* invite        => NULL (empty)
+* cancel        => NULL (empty)
 * stat_id       => NULL
-* reschedule    => NULL
+* reschedule    => NULL (empty)
+
+** Note: "(empty)" means blank or empty string ('')
 
 """
 
 def refreshMeeting(meetingID):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    null = 'NULL'
-    stdp = "UPDATE %s SET %s = '%s', %s = '%s', %s = '%s', %s = '%s', %s = '%s', %s = '%s' WHERE %s ='%s"%(tb_meeting, fn_conf_period, null, fn_choose_period, null, fn_invite, null, fn_cancel, null, fn_stat_id, null, fn_reschedule, null )
-    #print stdp
+    #null = 'NULL'
+    stdp = "UPDATE %s SET %s = '0', %s = '', %s = '', %s = '', %s = '', %s = NULL, %s = '' WHERE %s ='%s' "%(tb_meeting, fn_length, fn_conf_period, fn_choose_period, fn_invite, fn_cancel,  fn_stat_id, fn_reschedule, fn_meeting_id,meetingID )
+    print stdp
     cursor.execute(stdp)
     warnings = cursor.fetchwarnings()
     if warnings:
@@ -686,7 +698,7 @@ Update dms.user_ca.active
 
 """
 
-def updateUserCA(userID):
+def updateUserCA(userID, active):
     
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
@@ -743,9 +755,11 @@ def addMeetingStat(meetingID,confirmDate,confirmPeriod, confNum, declNum):
     rowcount = cursor.rowcount
     
     if rowcount > 0:
-        # Then add stat_id to dms.meeting
+        # Then update dms.meeting.stat_id
         statID = cursor.lastrowid
-        stdp = "INSERT INTO %s (%s) VALUES ('%s')"%(tb_meeting,fn_stat_id,statID)
+        print statID
+        stdp = "UPDATE %s SET %s = '%s' WHERE %s = '%s'"%(tb_meeting,fn_stat_id,statID,fn_meeting_id,meetingID)
+        print stdp
         cursor.execute(stdp)
         db.commit()
         rowcount = cursor.rowcount
@@ -758,7 +772,7 @@ def addMeetingStat(meetingID,confirmDate,confirmPeriod, confNum, declNum):
 """
 getMeeting()
 
-Get the initial paramters and other values of a meeting
+Get the initial parameters and other values of a meeting
 
 result:
 
@@ -787,7 +801,7 @@ def getMeeting(meetingID):
     if warnings:
         print warnings
             
-    if row == None:
+    if result == None:
         return None
     else:
         return result
@@ -804,7 +818,9 @@ Add a message to dms.message
 def addMessage(userID,contentID,uri,read):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    stdp = "INSERT INTO %s (%s,%s,%s,%s) VALUES ('%s','%s','%s','%s')"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read, userID,contentID,uri,read)                                                  
+    stdp = "INSERT INTO `%s` (`%s`,`%s`,`%s`,`%s`) VALUES ('%s','%s','%s','%s')"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read, userID,contentID,uri,read)     
+    
+                                  
     #print stdp
     cursor.execute(stdp)
     warnings = cursor.fetchwarnings()
@@ -825,8 +841,8 @@ Sequence is a list of 4-tuple
 def addManyMessage(sequence):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    st = "INSERT INTO %s (%s,%s,%s,%s) VALUES"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read)                                                  
-    #print stdp
+    st = "INSERT INTO `%s` (`%s`,`%s`,`%s`,`%s`) VALUES"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read)                                                  
+    print st
     cursor.executemany(st+"('%s','%s','%s','%s')",sequence)    
     warnings = cursor.fetchwarnings()
     if warnings:
@@ -858,7 +874,65 @@ def getUsername(userID):
     else:
         return row[0]
 
+"""
+getUserID()
 
+Get user_id using username
+
+"""
+
+def getUserID(username):
+    
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT %s FROM %s WHERE %s = '%s'"%(fn_user_id, tb_user, fn_user_name, username)
+    cursor.execute(stdp)   
+    row = cursor.fetchone()
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+            
+    if row == None:
+        return None
+    else:
+        return row[0]    
+    
+"""
+getConfInviteeID()
+
+# Get invitee IDs who confirmed the Confirmed Periods
+"""
+def getConfInviteeID(stat):
+    confInviteeName = []
+    confInviteeID = []
+    for s in stat:
+        if s[3] == "confirmed":
+            confInviteeName.append(s[4])
+            
+    for username in confInviteeName:
+        userID = getUserID(username)
+        confInviteeID.append(userID)
+        
+    return confInviteeID
+
+"""
+getDeclInviteeID()
+
+# Get invitee IDs who declined the Confirmed Periods
+"""
+
+def getDeclInviteeID(stat):
+    confInviteeName = []
+    confInviteeID = []
+    for s in stat:
+        if s[3] == "declined":
+            confInviteeName.append(s[4])
+            
+    for username in confInviteeName:
+        userID = getUserID(username)
+        confInviteeID.append(userID)
+        
+    return confInviteeID
 
 if __name__ == "__main__":
     dayRange = [20120603,20120604]
@@ -873,4 +947,5 @@ if __name__ == "__main__":
     #addMSA('14','26','False')
     #print addMeetingStat(1, 20120304, 431, 3, 4)
     #print emptyCA()
-    print updateUserMSA('1',True)
+    #print updateUserMSA('1',True)
+    refreshMeeting(7)
