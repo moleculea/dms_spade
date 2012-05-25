@@ -8,7 +8,7 @@ Agent Life Cycle Control (ALCC)
 Main portal
 """
 import spade
-import time
+import time,os
 import DMS
 
 from Algorithms.dbmodel import *
@@ -125,13 +125,12 @@ def caControl():
                     # Append the instance to the dictionary
                     livingCA[user] = ca
                     
-                    # Update dms.user_msa.active of this user to True
+                    # Update dms.user_ca.active of this user to True
                     updateUserCA(userID,True)
                     
             # If active is False, shutdown CA
-             
             if active == 'False': 
-                shutdownAgent(user,'CA')
+                shutdownAgent(user,userID,'CA')
 
         # Empty dms.user_ca
         emptyCA()
@@ -265,7 +264,7 @@ shutdownAgent()
 Shutdown an agent; type is MSA | CA
 
 """        
-def shutdownAgent(user,type):
+def shutdownAgent(user,userID,type):
     
     if type == 'MSA':
 
@@ -283,7 +282,10 @@ def shutdownAgent(user,type):
             del livingMSA[user]
             # Delete this user's meeting meeting
             del meeting[user]
-        
+
+            # Update dms.user_ca.active of this user to False
+            updateUserMSA(userID,False)
+            
     if type == 'CA':
         if user not in livingCA.keys():
             print "ACLL: --> shutdownAgent(): This user %s' CA is not running in MAS"%(user)
@@ -295,6 +297,9 @@ def shutdownAgent(user,type):
             ca._shutdown()
             # Delete this user's CA from livingCA
             del livingCA[user]
+            
+            # Update dms.user_msa.active of this user to False
+            updateUserCA(userID,False)
 """
 main()
 

@@ -394,6 +394,10 @@ Return number of rows affected
 """    
 
 def addMeetingCanceled(meetingID,hostID,date,period,stage,reason=None):
+    if not date:
+        date = "0000-00-00"
+    if not period:
+        period = ""
     if not isMeetingCanceled(meetingID):
         db = mysql.connector.Connect(**config)
         cursor = db.cursor()
@@ -733,7 +737,7 @@ def addMeetingStat(meetingID,confirmDate,confirmPeriod, confNum, declNum):
     # First add stat to dms.meeting_stat
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    stdp = "INSERT INTO %s (%s,%s,%s,%s,%s) VALUES ('%s','%s','%s','%s','%s')"%(tb_meeting_stat,fn_meeting_id,fn_date,fn_conf_period,fn_confirm,fn_decline,meetingID,confirmDate,confirmPeriod,confNum,declNum)       
+    stdp = "INSERT INTO %s (%s,%s,%s,%s) VALUES ('%s','%s','%s','%s')"%(tb_meeting_stat,fn_date,fn_conf_period,fn_confirm,fn_decline,confirmDate,confirmPeriod,confNum,declNum)       
     cursor.execute(stdp)
     db.commit()
     rowcount = cursor.rowcount

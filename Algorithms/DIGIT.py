@@ -15,3 +15,11 @@ DIGIT.reverse() # Comparison Bit Digit
 
 REVERSE = 65535
 # REVERSE = 0b1111111111111111
+
+# RDIGIT:
+# from
+# 0b1000000000000000
+# to
+# 0b0000000000000001
+
+RDIGIT = [REVERSE - i for i in DIGIT]

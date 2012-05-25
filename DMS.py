@@ -973,8 +973,8 @@ class MSA(spade.bdi.BDIAgent):
                 
                 # Add the stat to dms.meeitng_stat
                 confNum, declNum = statistics
-                addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
-                
+                #addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
+                addMeetingStat(confirmDate, confirmPeriod, confNum, declNum)
                 # Get invitee IDs who confirmed the Confirmed Periods
                 confList = getConfInviteeID(self.stat)    
                 # Get invitee IDs who declined the Confirmed Periods
@@ -1083,7 +1083,8 @@ class MSA(spade.bdi.BDIAgent):
                                     inviteeList.append(inviteeID)
                                     #interact._sendMessage(contentID, uri)
                                     interact.toCancel()
-                                    
+                    time.sleep(0.5)    
+                            
             time.sleep(self.sleep)                                    
                             
 
@@ -1618,6 +1619,15 @@ class Interact(object):
         WAIT_TIME = 60
         confirmPeriod = None
         
+        # Join the value (wPeriod)(list of 2-tuples) into a string
+        # Join with ";"
+        period_list = []
+        for tuple in value:
+            period_list.append(str(tuple[0]))
+            
+        value = ";".join(period_list)
+        
+        
         # Update dms.meeting.choose_period
         result = updateChoosePeriod(self.meetingID,value)
         
@@ -1698,6 +1708,7 @@ class Interact(object):
     
     """
     def toCancel(self):
+        stage = "FB"
         WAIT_TIME = 30
         
         read = False
@@ -1710,7 +1721,7 @@ class Interact(object):
         # Waiting for WAIT_TIME
         counter = 0
         while True:
-            # invite = dms.meeting.cancel
+            # cancel = dms.meeting.cancel
             cancel = checkMeetingToCancel(self.meetingID)
             
             if cancel == 'True':
