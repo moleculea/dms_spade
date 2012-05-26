@@ -34,6 +34,22 @@ livingCA = {}
 # {username1: meeting_id1, username2: meeting_id2 }
 meeting = {}
 
+
+"""
+initCA
+
+Initialize CAs according to records in dms.user_ca
+Any user who is added to user_ca will have a CA
+"""
+def initCA():
+    rows = getUserCA()
+    for row in rows:
+        userID = row[0]
+        username = getUsername(userID)
+        ca = startCA(userID,username)
+        # Append the instance to the dictionary
+        livingCA[username] = ca
+
 """
 msaControl()
 
@@ -53,12 +69,10 @@ def msaControl():
             meetingID = row[1]
             userID = row[2]
             active = row[3]
-            
+            # user is username
+            user = getUsername(userID)
             # If active is True, start MSA with meeting parameters
             if active == 'True':
-                
-                # user is username
-                user = getUsername(userID)
                 
                 # Check whether this user exists in livingMSA
                 if user in livingMSA.keys():
@@ -81,7 +95,7 @@ def msaControl():
                     
             # If active is False, shutdown MSA 
             if active == 'False': 
-                shutdownAgent(user,'MSA')
+                shutdownAgent(user,userID,'MSA')
                 
         # Empty dms.user_msa
         emptyMSA()
@@ -108,11 +122,10 @@ def caControl():
             userID = row[1]
             active = row[2]
             
+           # user is username
+            user = getUsername(userID)
             if active == 'True':
-                
-                # user is username
-                user = getUsername(userID)
-                
+
                 # Check this user exists in livingCA
                 if user in livingCA.keys():
                     print "ALCC --> caControl(): The CA of %s is already living in MAS"%(user)
@@ -186,7 +199,7 @@ Instantiate MSA, initialize initial parameters and start it
 """    
 
 def startMSA(userID, username, meetingID):
-    print "ACLL: --> startMSA(): Ready to start MSA for " + username
+    print "ALCC --> startMSA(): Ready to start MSA for " + username
     # Structure arguments used in MSA.initialize()
     # user,dayRange,pPeriod,mLen,mt,conf
     user = {}
@@ -220,6 +233,7 @@ def startMSA(userID, username, meetingID):
     # Struct dayRange
     dayRange = result[3].split(';')
     # Convert element into integer
+    
     dayRange = listEl2Int(dayRange)
     
     # Struct length
@@ -238,17 +252,19 @@ def startMSA(userID, username, meetingID):
     
     conf['SEARCH_BIAS']['METHOD'] = result[7]
     conf['SEARCH_BIAS']['DELIMIT'] = result[8]
-    conf['CONFIRM_METHOD']['METHOD_NAME'] = result[9]
-    print conf
+    conf['CONFIRM_METHOD'] = result[9]
+    #print conf
     # Instantiate MSA
     #print "%s.msa@%s"%(user, hostname)
     
     msa = DMS.MSA("%s.msa@%s"%(username, hostname), password) 
     #print msa
     # Initialize parameters
+    #print user,dayRange,pPeriod,mLen,mt,conf
     msa.initialize(user,dayRange,pPeriod,mLen,mt,conf)
     msa.start()
-    print "ACLL: --> startMSA(): MSA for %s started"%(username)
+    print "ALCC --> startMSA(): MSA for %s started"%(username)
+    return msa
     
 """
 startCA()
@@ -258,7 +274,7 @@ Instantiate CA, initialize initial parameters and start it
 """        
 def startCA(userID,username):
     
-    print "ACLL: --> startMSA(): Ready to start CA for " + username
+    print "ALCC --> startCA(): Ready to start CA for " + username
     # Instantiate CA
     ca = DMS.CA("%s.ca@%s"%(username, hostname), password) 
     user = {'NAME':username,'ID':userID}
@@ -266,7 +282,8 @@ def startCA(userID,username):
     # Initialize parameters
     ca.initialize(user)
     ca.start()
-    print "ACLL: --> startMSA(): CA for %s started"%(username)
+    print "ALCC --> startMSA(): CA for %s started"%(username)
+    return ca
     
 """
 shutdownAgent()
@@ -279,7 +296,7 @@ def shutdownAgent(user,userID,type):
     if type == 'MSA':
 
         if user not in livingMSA.keys():
-            print "ACLL: --> shutdownAgent(): This user %s' MSA is not running in MAS"%(user)
+            print "ALCC --> shutdownAgent(): This user %s's MSA is not running in MAS"%(user)
             
         else:
             # Getting the MSA instance of this user saved earlier in livingMSA dict
@@ -298,11 +315,12 @@ def shutdownAgent(user,userID,type):
             
     if type == 'CA':
         if user not in livingCA.keys():
-            print "ACLL: --> shutdownAgent(): This user %s' CA is not running in MAS"%(user)
+            print "ALCC --> shutdownAgent(): This user %s's CA is not running in MAS"%(user)
             
         else:
             # Getting the MSA instance of this user saved earlier in livingMSA dict
             # ca is an instance of CA running in MAS
+            print livingCA
             ca = livingCA[user]
             ca._shutdown()
             # Delete this user's CA from livingCA
@@ -349,7 +367,11 @@ Main portal of DMS
 
 """
 if __name__ == "__main__":
-    
+    """
+    for i in range(2,8):
+        addCA(i,True)
+    """  
+    initCA()
     # Interval of loop
     interval = 2
     try:

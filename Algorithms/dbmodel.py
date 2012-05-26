@@ -92,7 +92,6 @@ def retrieveAgenda(dayRange, userID):
         if warnings:
             print warnings
         rows = cursor.fetchall()
-        #db.close()
         # If date exists
         if len(rows)>0:
              yield date,rows[0][0] # Yield tuple:(date, daily period)
@@ -144,10 +143,10 @@ def retrieveInvitee(userID, sgroup):
         sgroup = "1"
         stiv = "SELECT `%s` FROM `%s` INNER JOIN `%s` ON %s.%s = %s.%s WHERE %s.%s = '%s' AND  %s.%s = '%s'"%(fn_user_name,tb_user,tb_user_invitee,tb_user,fn_user_id,tb_user_invitee,fn_invitee_id,tb_user_invitee,fn_host_id,
         userID,tb_user_invitee,fn_invitee_status,sgroup)
-        #print stiv
+        print stiv
         
     elif sgroup=="ALL_INVITEE":
-        stiv = "SELECT `%s` FROM `%s` INNER JOIN `%s` ON %s.%s = %s.%s WHERE %s.%s = '%s'"%(fn_user_name,tb_user,tb_user_invitee,tb_user,fn_user_id,tb_user_invitee,fn_invitee_id,tb_user_invitee,fn_host_id,userID,tb_user_invitee)
+        stiv = "SELECT `%s` FROM `%s` INNER JOIN `%s` ON %s.%s = %s.%s WHERE %s.%s = '%s'"%(fn_user_name,tb_user,tb_user_invitee,tb_user,fn_user_id,tb_user_invitee,fn_invitee_id,tb_user_invitee,fn_host_id,userID)
         
     elif sgroup=="COMMON_INVITEE":
         sgroup = "1"
@@ -225,7 +224,7 @@ Prefix rules:
 updateConfPeriod():
 
 Update dms.meeting.conf_period
-value: False | period (int)
+value: True | False | period (int)
 """
 
 def updateConfPeriod(meetingID, value):
@@ -234,13 +233,15 @@ def updateConfPeriod(meetingID, value):
     
     stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s'"%(tb_meeting, fn_conf_period, value, fn_meeting_id, meetingID)
     
-    #print stdp
+    print stdp
     cursor.execute(stdp)
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
     db.commit()
-    return cursor.rowcount
+    rowcount = cursor.rowcount
+    db.close()
+    return rowcount
 
 
 
@@ -259,7 +260,7 @@ def checkConfPeriod(meetingID):
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
-            
+    db.close()        
     if row == None:
         return None
     else:
@@ -280,11 +281,14 @@ def updateChoosePeriod(meetingID, value):
     stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s'"%(tb_meeting, fn_choose_period, value, fn_meeting_id, meetingID)
     #print stdp
     cursor.execute(stdp)
+    rowcount = cursor.rowcount
     warnings = cursor.fetchwarnings()
+    
     if warnings:
         print warnings    
     db.commit()
-    return cursor.rowcount
+    db.close()
+    return rowcount
 
 """
 checkInvite():
@@ -301,6 +305,7 @@ def checkInvite(meetingID):
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings    
+    db.close()
     if row == None:
         return None
     else:
@@ -319,11 +324,13 @@ def updateInvite(meetingID, value):
     stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s'"%(tb_meeting, fn_invite, value, fn_meeting_id, meetingID)
     #print stdp
     cursor.execute(stdp)
+    rowcount = cursor.rowcount
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings   
     db.commit()
-    return cursor.rowcount
+    db.close()
+    return rowcount
 
 
 
@@ -339,12 +346,13 @@ def inspectUIM(meetingID, hostID):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
     stdp = "SELECT %s,%s FROM %s WHERE %s ='%s' AND %s = '%s' AND %s = '%s'"%(fn_invitee_id,fn_accept,tb_uim,fn_meeting_id,meetingID,fn_host_id,hostID,fn_available,'True')
-    print stdp
+    #print stdp
     cursor.execute(stdp)
     rows = cursor.fetchall()
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
+    db.close()
     # List of tuples,e.g. [(invitee_id1,True),(invitee_id2,False),(invitee_id3,NULL)]
     return rows
 
@@ -362,11 +370,13 @@ def updateUIMavailable(hostID, inviteeID, meetingID, value):
     stdp = "UPDATE %s SET %s = '%s' WHERE %s ='%s' AND %s ='%s' AND %s ='%s'"%(tb_uim, fn_available, value, fn_meeting_id, meetingID, fn_host_id, hostID, fn_invitee_id, inviteeID )
     #print stdp
     cursor.execute(stdp)
+    rowcount = cursor.rowcount
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings   
     db.commit()
-    return cursor.rowcount
+    db.close()
+    return rowcount
 
 
 """
@@ -384,8 +394,9 @@ def isInviteeVIP(hostID,inviteeID):
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
+    db.close()
     if row != None:
-        if row[0] == "VIP":
+        if row[0] == 1:
             return True
         else:
             return False
@@ -417,11 +428,13 @@ def addMeetingCanceled(meetingID,hostID,date,period,stage,reason=None):
             stdp = "INSERT INTO %s (%s,%s,%s,%s,%s,%s) VALUES ('%s','%s','%s','%s','%s','%s')"%(tb_meeting_canceled, fn_meeting_id, fn_host_id, fn_date, fn_period, fn_stage, fn_reason, meetingID, hostID, date, period, stage, reason)
         #print stdp
         cursor.execute(stdp)
+        rowcount = cursor.rowcount
         warnings = cursor.fetchwarnings()
         if warnings:
             print warnings
         db.commit()
-        return cursor.rowcount
+        db.close()
+        return rowcount
     else:
         print "addMeetingCanceled() failed: meeting_id: %s already exists"%(meetingID)
         return 0
@@ -443,13 +456,36 @@ def isMeetingCanceled(meetingID):
     # If meeting exists, return 1
     # else, return 0
     result = cursor.fetchall()
+    db.close()
     if len(result)>0:
         return True
     else:
         return False
 
 
+"""
+isMeetingSuccess():
 
+Check whether a meeting is successful (whether exists in dms.meeting_success))
+"""   
+def isMeetingSuccess(meetingID):
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT * FROM %s WHERE %s ='%s' "%(tb_meeting_success, fn_meeting_id, meetingID)
+    cursor.execute(stdp)
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+    # Return number of rows
+    # If meeting exists, return 1
+    # else, return 0
+    result = cursor.fetchall()
+    db.close()
+    if len(result)>0:
+        return True
+    else:
+        return False
+    
 """
 isMeetingToCancel():
 
@@ -462,36 +498,44 @@ def checkMeetingToCancel(meetingID):
     stdp = "SELECT %s FROM %s WHERE %s ='%s' "%(fn_cancel, tb_meeting, fn_meeting_id, meetingID)
     cursor.execute(stdp)
     row = cursor.fetchone()
+    
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings    
+    db.close()
+    
     if row == None:
         return None
     else:
         return row[0]
-
 
 """
 addMeetingSuccess()
 
 Add a meeting to dms.meeting_success
 Return number of rows affected
+
 """    
 
 def addMeetingSuccess(meetingID, hostID, confirmDate, confirmPeriod):
-    db = mysql.connector.Connect(**config)
-    cursor = db.cursor()
-    stdp = "INSERT INTO %s (%s,%s,%s,%s) VALUES ('%s','%s','%s','%s')"%(tb_meeting_success, fn_meeting_id, fn_host_id, fn_date, fn_period, meetingID, hostID, confirmDate, confirmPeriod)         
-                                
-    cursor.execute(stdp)
     
-    warnings = cursor.fetchwarnings()
-    if warnings:
-        print warnings
-        
-    db.commit()
-    return cursor.rowcount   
-
+    # Check whether the meeting exists in dms.meeting_success
+    if isMeetingSuccess(meetingID):
+        return 0
+    else:
+        db = mysql.connector.Connect(**config)
+        cursor = db.cursor()
+        stdp = "INSERT INTO %s (%s,%s,%s,%s) VALUES ('%s','%s','%s','%s')"%(tb_meeting_success, fn_meeting_id, fn_host_id, fn_date, fn_period, meetingID, hostID, confirmDate, confirmPeriod)         
+                                    
+        cursor.execute(stdp)
+        rowcount = cursor.rowcount 
+        warnings = cursor.fetchwarnings()
+        if warnings:
+            print warnings
+            
+        db.commit()
+        db.close()
+        return rowcount 
 
 
 """
@@ -514,6 +558,7 @@ def isRescheduled(meetingID):
         print warnings
     result = cursor.fetchone()
     #print result[0]
+    db.close()
     if result[0]:
         return True
     else:
@@ -549,6 +594,7 @@ def refreshMeeting(meetingID):
     if warnings:
         print warnings   
     db.commit()
+    db.close()
     return cursor.rowcount
 
 
@@ -582,8 +628,38 @@ def addMSA(meetingID,userID,active):
             print warnings
         db.commit()
         rowcount = cursor.rowcount
+        db.close()
     return rowcount
 
+
+"""
+CA
+For experiment:
+"""
+def addCA(userID,active):
+    
+    rowcount = 0
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    # First check whether the userID exists in dms.ca
+    stdp = "SELECT * FROM %s WHERE %s ='%s' "%(tb_ca, fn_user_id, userID)
+    #print stdp
+    cursor.execute(stdp)
+    # If not exists
+    result = cursor.fetchall()
+    
+    if len(result) == 0:
+        stdp = "INSERT INTO %s (%s,%s) VALUES ('%s','%s')"%(tb_ca, fn_user_id, fn_active, userID, active)   
+        #print stdp
+        cursor.execute(stdp)
+        warnings = cursor.fetchwarnings()
+        if warnings:
+            print warnings
+        db.commit()
+        rowcount = cursor.rowcount
+        db.close()
+    return rowcount
+    
 
 """
 checkMSA()
@@ -604,7 +680,8 @@ def checkMSA():
     if warnings:
         print warnings
         
-    result = cursor.fetchall()    
+    result = cursor.fetchall() 
+    db.close()    
     if len(result) > 0:
         return result
     else:
@@ -627,6 +704,7 @@ def emptyMSA():
     if warnings:
         print warnings
     db.commit()
+    db.close() 
     #return cursor.rowcount # always 0
 """
 checkCA()
@@ -648,6 +726,7 @@ def checkCA():
         print warnings
 
     result = cursor.fetchall()    
+    db.close() 
     if len(result) > 0:
         return result
     else:
@@ -669,6 +748,7 @@ def emptyCA():
     if warnings:
         print warnings
     db.commit()
+    db.close()
     #return cursor.rowcount # always 0
 
 
@@ -686,11 +766,12 @@ def updateUserMSA(userID, active):
     stdp = "UPDATE %s SET %s = '%s' WHERE %s = '%s'"%(tb_user_msa, fn_active, active, fn_user_id,userID)   
     #print stdp
     cursor.execute(stdp)
+    rowcount = cursor.rowcount
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
     db.commit()
-    rowcount = cursor.rowcount
+    db.close()
     return rowcount
 
 
@@ -710,11 +791,12 @@ def updateUserCA(userID, active):
     stdp = "UPDATE %s SET %s = '%s' WHERE %s = '%s'"%(tb_user_ca, fn_active, active, fn_user_id,userID)   
     #print stdp
     cursor.execute(stdp)
+    rowcount = cursor.rowcount
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
     db.commit()
-    rowcount = cursor.rowcount
+    db.close()
     return rowcount
 
 
@@ -735,9 +817,10 @@ def getAcceptUserCA(userID):
     row = cursor.fetchone()
     
     warnings = cursor.fetchwarnings()
+    
     if warnings:
         print warnings
-            
+    db.close()
     if row == None:
         return None
     else:
@@ -766,11 +849,13 @@ def addMeetingStat(meetingID,confirmDate,confirmPeriod, confNum, declNum):
         stdp = "UPDATE %s SET %s = '%s' WHERE %s = '%s'"%(tb_meeting,fn_stat_id,statID,fn_meeting_id,meetingID)
         print stdp
         cursor.execute(stdp)
-        db.commit()
         rowcount = cursor.rowcount
+        db.commit()
+        db.close()
         return rowcount
     
     else:
+        db.close()
         return 0
 
 
@@ -803,14 +888,15 @@ def getMeeting(meetingID):
     result = cursor.fetchone()
     
     warnings = cursor.fetchwarnings()
+    
     if warnings:
         print warnings
-            
+        
+    db.close()        
     if result == None:
         return None
     else:
         return result
-
 
 
 """
@@ -823,16 +909,16 @@ Add a message to dms.message
 def addMessage(userID,contentID,uri,read):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
-    stdp = "INSERT INTO `%s` (`%s`,`%s`,`%s`,`%s`) VALUES ('%s','%s','%s','%s')"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read, userID,contentID,uri,read)     
+    stdp = "INSERT INTO `%s` (`%s`,`%s`,`%s`,`%s`) VALUES ('%s','%s','%s','%s')"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read, userID, contentID, uri, read)     
     
-                                  
     #print stdp
     cursor.execute(stdp)
+    rowcount = cursor.rowcount
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
     db.commit()
-    rowcount = cursor.rowcount
+    db.close()
     return rowcount   
 
 
@@ -847,13 +933,14 @@ def addManyMessage(sequence):
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
     st = "INSERT INTO `%s` (`%s`,`%s`,`%s`,`%s`) VALUES"%(tb_message, fn_user_id, fn_content_id, fn_uri, fn_read)                                                  
-    print st
-    cursor.executemany(st+"('%s','%s','%s','%s')",sequence)    
+    #print st
+    cursor.executemany(st+"(%s,%s,%s,%s)",sequence)    
+    rowcount = cursor.rowcount
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
     db.commit()
-    rowcount = cursor.rowcount
+    db.close()
     return rowcount   
 
 """
@@ -873,7 +960,7 @@ def getUsername(userID):
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
-            
+    db.close()        
     if row == None:
         return None
     else:
@@ -896,7 +983,8 @@ def getUserID(username):
     warnings = cursor.fetchwarnings()
     if warnings:
         print warnings
-            
+        
+    db.close()        
     if row == None:
         return None
     else:
@@ -939,6 +1027,27 @@ def getDeclInviteeID(stat):
         
     return confInviteeID
 
+
+"""
+getUserCA()
+
+Get all users that exist in dms.user_ca
+
+"""
+
+def getUserCA():
+    db = mysql.connector.Connect(**config)
+    cursor = db.cursor()
+    stdp = "SELECT %s FROM %s "%(fn_user_id, tb_user_ca)
+    cursor.execute(stdp)   
+    row = cursor.fetchall()
+    warnings = cursor.fetchwarnings()
+    if warnings:
+        print warnings
+    db.close()
+    return row
+    
+    
 if __name__ == "__main__":
     dayRange = [20120603,20120604]
     userID = 1
