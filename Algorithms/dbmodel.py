@@ -401,10 +401,13 @@ Return number of rows affected
 """    
 
 def addMeetingCanceled(meetingID,hostID,date,period,stage,reason=None):
+    
     if not date:
         date = "0000-00-00"
+        
     if not period:
         period = ""
+        
     if not isMeetingCanceled(meetingID):
         db = mysql.connector.Connect(**config)
         cursor = db.cursor()
@@ -421,7 +424,7 @@ def addMeetingCanceled(meetingID,hostID,date,period,stage,reason=None):
         return cursor.rowcount
     else:
         print "addMeetingCanceled() failed: meeting_id: %s already exists"%(meetingID)
-        return None
+        return 0
 
 """
 isMeetingCanceled():
@@ -559,6 +562,7 @@ After manipulation ALCC empties table dms.msa, which is normally empty
 """
 
 def addMSA(meetingID,userID,active):
+    
     rowcount = 0
     db = mysql.connector.Connect(**config)
     cursor = db.cursor()
@@ -568,6 +572,7 @@ def addMSA(meetingID,userID,active):
     cursor.execute(stdp)
     # If not exists
     result = cursor.fetchall()
+    
     if len(result) == 0:
         stdp = "INSERT INTO %s (%s,%s,%s) VALUES ('%s','%s','%s')"%(tb_msa, fn_meeting_id,  fn_user_id, fn_active, meetingID, userID, active)   
         #print stdp

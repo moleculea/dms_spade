@@ -507,8 +507,13 @@ class MSA(spade.bdi.BDIAgent):
                         ##### VALIDATED BRANCH #####
                         # This time of schedule failed
                         print self.myAgent.getName(),"-->MSA.GeneratePeriod._process(): LINEAR_EARLY: schedule failed"
+                        print self.myAgent.getName(),"-->MSA.GeneratePeriod._process(): LINEAR_EARLY: removeBelieve => YIELD_PERIOD"
+                        
                         self.myAgent.removeBelieve("YIELD_PERIOD")
+                        
+                        print self.myAgent.getName(),"-->MSA.GeneratePeriod._process(): ###### Interact point starts (no ends) ######"
                         self.myAgent.scheduleFailed()
+                        
                         """
                         Shutdown the agent (testing stage)
                         """
@@ -785,15 +790,18 @@ class MSA(spade.bdi.BDIAgent):
                         if method == "AUTO":
                             #DEBUG#print self.WAPList
                             self.confirmPeriod = getConfirmPeriod(self.WAPList, method)
+                            print self.myAgent.getName(),"-->MSA.ConfirmPeriod._process(): confirmed method is AUTO"
                             print self.myAgent.getName(),"-->MSA.ConfirmPeriod._process(): automatically getting Confirmed Period using getConfirmPeriod() from WAP list"
+                            print self.myAgent.getName(),"-->MSA.ConfirmPeriod._process(): Confirmed Period is %s"%self.confirmPeriod
                         
                         ###########################  
                         # method == 'PROMPT'      #      
                         # Debug in the last stage #
                         ###########################     
                         elif method == 'PROMPT':
+                            print self.myAgent.getName(),"-->MSA.ConfirmPeriod._process(): confirmed method is PROMPT"
                             print self.myAgent.getName(),"-->MSA.ConfirmPeriod._process(): waiting for the host to determine the Confirmed Period"
-                            
+                            print self.myAgent.getName(),"-->MSA.ConfirmPeriod._process(): ####### Interact point starts ########"
                             # wPeriods is a list of 2-tuple 
                             # [(period1,weight2),(period2,weight2),...]
                             wPeriods = getConfirmPeriod(self.WAPList, method)
@@ -802,6 +810,8 @@ class MSA(spade.bdi.BDIAgent):
                             # If user does not give response within specific time
                             # The system chooses a Confirmed Period instead
                             self.confirmPeriod = self.myAgent.toConfirmPeriod(wPeriods)
+                            print self.myAgent.getName(),"-->MSA.ConfirmPeriod._process(): ####### Interact point ends ########"
+                            print self.myAgent.getName(),"-->MSA.ConfirmPeriod._process(): waiting complete; Confirmed Period is %s"%self.confirmPeriod
      
                         # If no Common Period exists
                         if not self.confirmPeriod:
@@ -948,7 +958,8 @@ class MSA(spade.bdi.BDIAgent):
                 
                 if self.receivedNum < self.senderNum:
                     print self.myAgent.getName(),"-->MSA.Invite._process(): receiving only %s REPLY_CONFIRM_PERIOD messages, less than number of senders: %s"%(self.receivedNum,self.senderNum)
-                            
+                      
+
                 print " ***** CONFIRMED PERIOD *****"
                 print self.stat
                 print bin(self.stat[0][1])
@@ -963,7 +974,8 @@ class MSA(spade.bdi.BDIAgent):
                 # Get the statistics of meeting attendees   
                 # getStatistics in idleness.py
                 statistics = getStatistics(self.stat) 
-
+                print self.myAgent.getName(),"-->MSA.Invite._process(): meeting statistics generated"
+                
                 # Variables used in the following codes
                 meetingID = self.myAgent.mt['ID']
                 userID = self.myAgent.user['ID']
@@ -974,6 +986,7 @@ class MSA(spade.bdi.BDIAgent):
                 # Add the stat to dms.meeitng_stat
                 confNum, declNum = statistics
                 #addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
+                print self.myAgent.getName(),"-->MSA.Invite._process(): adding meeting statistics to dms.meeting_stat and update dms.meeting.stat_id"
                 addMeetingStat(meetingID, confirmDate, confirmPeriod, confNum, declNum)
                 
                 # Get invitee IDs who confirmed the Confirmed Periods
@@ -983,6 +996,7 @@ class MSA(spade.bdi.BDIAgent):
                 declList = getDeclInviteeID(self.stat)
                 
                 # Update user_invitee_meeting.available
+                print self.myAgent.getName(),"-->MSA.Invite._process(): updating user_invitee_meeting.available"
                 for c_id in confList:
                     inviteeID = c_id
                     updateUIMavailable(hostID, inviteeID, meetingID, True)
@@ -992,12 +1006,15 @@ class MSA(spade.bdi.BDIAgent):
                     updateUIMavailable(hostID, inviteeID, meetingID, False)
                 
                 # Add the meeting to dms.meeting_success
+                print self.myAgent.getName(),"-->MSA.Invite._process(): adding meeting to dms.meeting_success"
                 addMeetingSuccess(meetingID, hostID, confirmDate, confirmPeriod)
                 
                 # Call Interact.toInvite() to indefinitely wait for host's response
                 interact = Interact(meetingID, userID, confirmPeriod, confirmDate)
+                print self.myAgent.getName(),"-->MSA.Invite._process(): waiting for the host to send invitation or do something else"
+                print self.myAgent.getName(),"-->MSA.Invite._process(): ###### Interact point starts (indefinitely) ######"
                 result = interact.toInvite()
-                
+                print self.myAgent.getName(),"-->MSA.Invite._process(): ###### Interact point ends ######"
                 """
                 # Instantiate message
                 self.msg = spade.ACLMessage.ACLMessage() 
@@ -1595,6 +1612,7 @@ class Interact(object):
         print "Interact.failed()  --> Waiting for the host's choice"
         while True:
             
+            ## Django force cancel ##
             """
             # If Django added the meeting to dms.meeting_canceled
             if isMeetingCanceled(meetingID):
@@ -1609,10 +1627,12 @@ class Interact(object):
                 break
             
             if counter == WAIT_TIME:
+                print "Interact.failed()  --> Time is up, ready to automatically cancel the meeting"
                 # If waiting time is due, automatically cancel the meeting 
                 self._cancel(stage)
                 break
             
+            #print counter
             counter += 1
             time.sleep(1)
         
@@ -1638,16 +1658,16 @@ class Interact(object):
         for tuple in value:
             period_list.append(str(tuple[0]))
             
-        value = ";".join(period_list)
+        strvalue = ";".join(period_list)
         #print value
         # Update dms.meeting.choose_period
-        result = updateChoosePeriod(self.meetingID,value)
+        result = updateChoosePeriod(self.meetingID,strvalue)
         
         if result > 0:
             print "Interact.toConfirmPeriod() --> Updated dms.meeting.choose_period: => %s"%value
         
         # Update dms.meeting.conf_period tp True to wait for host's response to choose
-        print result
+        #print result
         result = updateConfPeriod(self.meetingID,'True')
         if result > 0:
             print "Interact.toConfirmPeriod()  --> Updated dms.meeting.conf_period: => True"
@@ -1663,25 +1683,31 @@ class Interact(object):
             # confirmPeriod = dms.meeting.conf_period
             confirmPeriod = checkConfPeriod(self.meetingID)
             if confirmPeriod != 'True':
+                print "Interact.toConfirmPeriod()  --> Confirmed Period determined: %s"%confirmPeriod
                 break
             
             # If waiting time is due
             # Return the first tuple's period of the wPeriod (a.k.a. value) list
             if counter == WAIT_TIME:
+                
                 confirmPeriod = value[0][0]
+                "Interact.toConfirmPeriod()  --> Time is up, automatically generate Confirmed Period: %s"%confirmPeriod
                 break
             
             counter += 1
+            print counter
             # Query database every 1 seconds
             time.sleep(1)
-            
+        
+        # Convert unicode string into integer
+        confirmPeriod = int(confirmPeriod) 
         return confirmPeriod
     
     
     """    
     # Asks the user whether to invite, cancel or reschedule upon CAs' confirmations
     # Get the result
-    # Called in MSA.Invitee
+    # Called in MSA.Invite
     """
     def toInvite(self):
         # Set stage to INVT (Invitation)
@@ -1706,6 +1732,7 @@ class Interact(object):
                 break
                 # Then process goes on to START_FEEDBACK
             
+            ## Interact cancel ##
             elif invite == 'False': 
                 # Cancel the meeting
                 self._cancel(stage)
@@ -1740,6 +1767,7 @@ class Interact(object):
             # cancel = dms.meeting.cancel
             cancel = checkMeetingToCancel(self.meetingID)
             
+            ## Interact cancel ##
             if cancel == 'True':
                 self._cancel(stage)
                 break
@@ -1784,16 +1812,18 @@ class Interact(object):
         
         # Add meeting to dms.meeting_canceled
         result = addMeetingCanceled(self.meetingID,self.hostID,self.confirmDate,self.confirmPeriod,stage)
-        
+
         # If successful
-        if result>0:
+        if result > 0:
             print "Interact._cancel() --> Added meeting_id: %s to dms.meeting_canceled"%(self.meetingID)
-        
-        # Add host to dms.msa, with dms.msa.active = False, ALCC will thus shutdown the agent
-        result = addMSA(self.meetingID, self.userID, 'False')
-        if result>0:
-            print "Interact --> Added meeting_id: %s and user_id: %s to dms.msa"%(self.meetingID,self.userID)
-        
+            
+            # Only if add to dms.meeting_canceled is successful will it add host to dms.msa
+            # Add host to dms.msa, with dms.msa.active = False, ALCC will thus shutdown the agent
+            result = addMSA(self.meetingID, self.userID, 'False')
+            if result>0:
+                print "Interact --> Added meeting_id: %s and user_id: %s to dms.msa"%(self.meetingID,self.userID)
+        else:
+            print "Interact._cancel() --> Failed to add meeting_id to dms.meeting_canceled"
         
         #### Change dms.user_msa.active to False ## This is done by ALCC
         
