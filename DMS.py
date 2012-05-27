@@ -1930,7 +1930,7 @@ def FST():
                 'DELIMIT': 3,
                 },
                 
-            'CONFIRM_METHOD': 'PROMPT', # (PROMPT | AUTO)
+            'CONFIRM_METHOD': 'AUTO', # (PROMPT | AUTO)
             }
     msa.initialize(user,dayRange,pPeriod,mLen,mt,conf)
     msa.start()

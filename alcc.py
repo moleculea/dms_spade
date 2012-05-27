@@ -49,7 +49,7 @@ def initCA():
         ca = startCA(userID,username)
         # Append the instance to the dictionary
         livingCA[username] = ca
-
+    return 0
 """
 msaControl()
 
@@ -367,14 +367,12 @@ Main portal of DMS
 
 """
 if __name__ == "__main__":
-    """
-    for i in range(2,8):
-        addCA(i,True)
-    """  
-    initCA()
+
+    interval = 2 
     # Interval of loop
-    interval = 2
+
     try:
+        initCA()
         main(interval)
     # Control-C to exit
     except KeyboardInterrupt:
